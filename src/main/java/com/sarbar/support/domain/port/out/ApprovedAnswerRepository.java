@@ -7,4 +7,6 @@ import java.util.Optional;
 public interface ApprovedAnswerRepository {
 
   Optional<ApprovedAnswer> findByGeneralType(GeneralType generalType);
+
+  Optional<ApprovedAnswer> findByGeneralTypeAndTopic(GeneralType generalType, String topic);
 }
