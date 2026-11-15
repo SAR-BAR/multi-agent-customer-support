@@ -1,6 +1,8 @@
 spring:
   application:
     name: multi-agent-customer-support
+  profiles:
+    default: scripted
   datasource:
     url: jdbc:mysql://localhost:3306/support
     username: root

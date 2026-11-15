@@ -13,11 +13,13 @@ import com.sarbar.support.domain.record.post.ProposalContent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@Profile("scripted")
 public class ScriptedResolutionAgent implements ResolutionAgent {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();

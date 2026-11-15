@@ -9,9 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
+@Profile("scripted")
 public class ScriptedTriageAgent implements TriageAgent {
 
   private static final Pattern ORDER_ID_PATTERN = Pattern.compile("ORD-\\d+");

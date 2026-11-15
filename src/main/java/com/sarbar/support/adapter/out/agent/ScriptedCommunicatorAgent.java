@@ -8,11 +8,13 @@ import com.sarbar.support.domain.record.Decision;
 import com.sarbar.support.domain.record.post.ReplyContent;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@Profile("scripted")
 public class ScriptedCommunicatorAgent implements CommunicatorAgent {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
