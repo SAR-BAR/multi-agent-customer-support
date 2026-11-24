@@ -17,6 +17,11 @@ public class RefundRepositoryAdapter implements RefundRepository {
   }
 
   @Override
+  public Refund save(Refund refund) {
+    return jpa.save(RefundEntity.fromDomain(refund)).toDomain();
+  }
+
+  @Override
   public List<Refund> findByOrderId(String orderId) {
     return jpa.findByOrderId(orderId).stream().map(RefundEntity::toDomain).toList();
   }

@@ -287,6 +287,12 @@ class FactsComputerTest {
     }
 
     @Override
+    public Refund save(Refund r) {
+      refunds.add(r);
+      return r;
+    }
+
+    @Override
     public List<Refund> findByOrderId(String orderId) {
       return refunds.stream().filter(r -> r.orderId().equals(orderId)).toList();
     }

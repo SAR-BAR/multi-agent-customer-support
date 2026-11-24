@@ -7,6 +7,8 @@ import com.sarbar.support.domain.model.DecisionType;
 import com.sarbar.support.domain.model.Escalation;
 import com.sarbar.support.domain.model.PostAuthor;
 import com.sarbar.support.domain.model.PostType;
+import com.sarbar.support.domain.model.ProblemType;
+import com.sarbar.support.domain.model.SagaType;
 import com.sarbar.support.domain.port.out.BillingAgent;
 import com.sarbar.support.domain.port.out.CaseRepository;
 import com.sarbar.support.domain.port.out.CommunicatorAgent;
@@ -24,8 +26,14 @@ import com.sarbar.support.domain.record.post.EscalatedContent;
 import com.sarbar.support.domain.record.post.FactsContent;
 import com.sarbar.support.domain.record.post.MoodContent;
 import com.sarbar.support.domain.record.post.ProblemContent;
+import com.sarbar.support.domain.record.post.ProposalContent;
+import com.sarbar.support.domain.record.post.SagaStepContent;
+import com.sarbar.support.domain.service.saga.SagaOrchestrator;
+import com.sarbar.support.domain.service.saga.SagaResult;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -46,6 +54,7 @@ public class CaseProcessor {
   private final GeneralHandler generalHandler;
   private final CaseRepository caseRepository;
   private final EscalationRepository escalationRepository;
+  private final SagaOrchestrator sagaOrchestrator;
 
   public CaseProcessor(
       TriageAgent triageAgent,
@@ -60,7 +69,8 @@ public class CaseProcessor {
       DecisionEngine decisionEngine,
       GeneralHandler generalHandler,
       CaseRepository caseRepository,
-      EscalationRepository escalationRepository) {
+      EscalationRepository escalationRepository,
+      SagaOrchestrator sagaOrchestrator) {
     this.triageAgent = triageAgent;
     this.resolutionAgent = resolutionAgent;
     this.billingAgent = billingAgent;
@@ -74,6 +84,7 @@ public class CaseProcessor {
     this.generalHandler = generalHandler;
     this.caseRepository = caseRepository;
     this.escalationRepository = escalationRepository;
+    this.sagaOrchestrator = sagaOrchestrator;
   }
 
   public ProcessResult process(Long conversationId, String message) {
@@ -180,7 +191,7 @@ public class CaseProcessor {
           }
         }
         case DECISION_ENGINE -> {
-          Decision decision = decisionEngine.decide(board);
+          Decision decision = runSagaIfNeeded(supportCase, board, decisionEngine.decide(board));
           DecisionContent content =
               new DecisionContent(
                   decision.type(), decision.approvedProposalPostIds(), decision.explanation());
@@ -262,6 +273,49 @@ public class CaseProcessor {
     }
 
     return new ProcessResult(caseId, "Your case is being reviewed by our team.", true);
+  }
+
+  private Decision runSagaIfNeeded(Case supportCase, List<CasePost> board, Decision decision) {
+    if (decision.type() != DecisionType.EXECUTE) {
+      return decision;
+    }
+    Set<Long> approvedIds = new HashSet<>(decision.approvedProposalPostIds());
+    List<ProposalContent> moneyProposals =
+        board.stream()
+            .filter(p -> p.type() == PostType.PROPOSAL && approvedIds.contains(p.id()))
+            .map(p -> parse(p, ProposalContent.class))
+            .filter(ProposalContent::involvesMoney)
+            .toList();
+    if (moneyProposals.isEmpty()) {
+      return decision;
+    }
+
+    int amountPaise = moneyProposals.stream().mapToInt(ProposalContent::amountPaise).sum();
+    SagaType sagaType =
+        moneyProposals.stream().anyMatch(p -> p.problemType() == ProblemType.COUPON_NOT_APPLIED)
+            ? SagaType.COUPON_CREDIT
+            : SagaType.REFUND;
+
+    SagaResult result =
+        sagaOrchestrator.run(supportCase.id(), sagaType, supportCase.orderId(), amountPaise);
+    caseBoardService.addPost(
+        new CasePost(
+            null,
+            supportCase.id(),
+            PostAuthor.SYSTEM,
+            PostType.SAGA_STEP,
+            toJson(new SagaStepContent(sagaType.name(), "SAGA", result.status().name())),
+            List.of(),
+            null,
+            Instant.now()));
+
+    if (!result.succeeded()) {
+      return new Decision(
+          DecisionType.ESCALATE,
+          List.of(),
+          "Saga " + sagaType + " did not complete: " + result.detail());
+    }
+    return decision;
   }
 
   private Decision findLatestDecision(List<CasePost> board) {

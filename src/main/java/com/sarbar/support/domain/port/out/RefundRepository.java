@@ -5,6 +5,8 @@ import java.util.List;
 
 public interface RefundRepository {
 
+  Refund save(Refund refund);
+
   List<Refund> findByOrderId(String orderId);
 
   boolean existsByIdempotencyKey(String idempotencyKey);

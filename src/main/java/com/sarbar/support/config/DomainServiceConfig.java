@@ -5,14 +5,21 @@ import com.sarbar.support.domain.port.out.BillingAgent;
 import com.sarbar.support.domain.port.out.CasePostRepository;
 import com.sarbar.support.domain.port.out.CaseRepository;
 import com.sarbar.support.domain.port.out.CommunicatorAgent;
+import com.sarbar.support.domain.port.out.CouponRepository;
+import com.sarbar.support.domain.port.out.CouponService;
+import com.sarbar.support.domain.port.out.CreditNoteRepository;
 import com.sarbar.support.domain.port.out.EscalationRepository;
 import com.sarbar.support.domain.port.out.InvoiceRepository;
 import com.sarbar.support.domain.port.out.MembershipRepository;
+import com.sarbar.support.domain.port.out.Notifier;
 import com.sarbar.support.domain.port.out.OrderRepository;
+import com.sarbar.support.domain.port.out.PaymentGateway;
 import com.sarbar.support.domain.port.out.PaymentRepository;
 import com.sarbar.support.domain.port.out.RefundRepository;
 import com.sarbar.support.domain.port.out.ResolutionAgent;
 import com.sarbar.support.domain.port.out.RiskAgent;
+import com.sarbar.support.domain.port.out.SagaInstanceRepository;
+import com.sarbar.support.domain.port.out.SagaStepRepository;
 import com.sarbar.support.domain.port.out.ShipmentRepository;
 import com.sarbar.support.domain.port.out.TriageAgent;
 import com.sarbar.support.domain.service.CaseBoardService;
@@ -22,6 +29,8 @@ import com.sarbar.support.domain.service.FactsComputer;
 import com.sarbar.support.domain.service.GeneralHandler;
 import com.sarbar.support.domain.service.Referee;
 import com.sarbar.support.domain.service.ScopedBoardView;
+import com.sarbar.support.domain.service.saga.SagaDefinition;
+import com.sarbar.support.domain.service.saga.SagaOrchestrator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -71,6 +80,31 @@ public class DomainServiceConfig {
   }
 
   @Bean
+  public SagaDefinition sagaDefinition(
+      PaymentGateway paymentGateway,
+      CouponService couponService,
+      Notifier notifier,
+      CreditNoteRepository creditNoteRepository,
+      CouponRepository couponRepository,
+      RefundRepository refundRepository) {
+    return new SagaDefinition(
+        paymentGateway,
+        couponService,
+        notifier,
+        creditNoteRepository,
+        couponRepository,
+        refundRepository);
+  }
+
+  @Bean
+  public SagaOrchestrator sagaOrchestrator(
+      SagaInstanceRepository sagaInstanceRepository,
+      SagaStepRepository sagaStepRepository,
+      SagaDefinition sagaDefinition) {
+    return new SagaOrchestrator(sagaInstanceRepository, sagaStepRepository, sagaDefinition);
+  }
+
+  @Bean
   public CaseProcessor caseProcessor(
       TriageAgent triageAgent,
       ResolutionAgent resolutionAgent,
@@ -84,7 +118,8 @@ public class DomainServiceConfig {
       DecisionEngine decisionEngine,
       GeneralHandler generalHandler,
       CaseRepository caseRepository,
-      EscalationRepository escalationRepository) {
+      EscalationRepository escalationRepository,
+      SagaOrchestrator sagaOrchestrator) {
     return new CaseProcessor(
         triageAgent,
         resolutionAgent,
@@ -98,6 +133,7 @@ public class DomainServiceConfig {
         decisionEngine,
         generalHandler,
         caseRepository,
-        escalationRepository);
+        escalationRepository,
+        sagaOrchestrator);
   }
 }
